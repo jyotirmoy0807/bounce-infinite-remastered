@@ -1,0 +1,31 @@
+Markdown
+# Bounce Tales: Saha Edition 🔴
+**A modern remaster of the classic Nokia "Bounce Tales" game.**
+
+Developed by **Jyotirmoy Saha**, this project is a desktop-ready version of the legendary mobile game, built using Electron and JavaScript. It features classic physics-based gameplay, a custom splash screen, and responsive controls.
+
+## 🛠️ Requirements
+To run this project locally, you need to have the following installed:
+* **Node.js** (v14 or higher)
+* **npm** (comes bundled with Node.js)
+
+## 🚀 How to Build and Run Locally
+
+1. **Clone the repository:**
+   ```bash
+   git clone [https://github.com/jyotirmoy0807/bounce-infinite-remastered.git](https://github.com/jyotirmoy0807/bounce-infinite-remastered.git)
+   cd bounce-infinite-remastered
+Install Dependencies:
+This project relies on Electron. Run the following command to install all necessary packages:
+
+Bash
+npm install
+Start the Application:
+To launch the game in development mode, use:
+
+Bash
+npm start
+🎮 Controls
+Arrow Keys / WASD: Move and Jump
+
+Objective: Collect the rings and reach the exit point while avoiding obstacles!

@@ -1,0 +1,27 @@
+1. The "Unlock" Command
+Copy and paste this first:
+
+PowerShell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+(If it asks for permission, type A for "Yes to All")
+
+2. Clearing the "Access Denied" Cache
+Those red errors about the "Cache" usually mean a hidden version of Electron is still running in the background, holding onto your files. Let's kill it so you can start fresh:
+
+Run this command to force-close any stuck game processes:
+
+PowerShell
+taskkill /F /IM electron.exe /T
+(If it says "Process not found," that’s actually good—it means it’s already closed).
+
+3. Run and Package
+Now that the path is clear, you can run your commands:
+
+To test the game:
+
+PowerShell
+npm start
+To build the final .exe (The "Noice" Version):
+
+PowerShell
+npx electron-packager . BounceTales --platform=win32 --arch=x64 --overwrite

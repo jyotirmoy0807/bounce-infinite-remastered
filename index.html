@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bounce Tales: Saha Edition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; font-family: 'Arial Rounded MT Bold', sans-serif; touch-action: none; }
+        canvas { display: block; margin: 0 auto; border-bottom: 4px solid #fff; }
+
+        /* Splash Screen / Loading Interface */
+        #splash {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #FF416C, #FF4B2B);
+            display: flex; flex-direction: column; justify-content: center;
+            align-items: center; z-index: 1000; color: white; text-align: center;
+            transition: opacity 1s ease-out;
+        }
+        #splash h1 { font-size: 50px; margin-bottom: 0; text-shadow: 3px 3px rgba(0,0,0,0.3); }
+        #splash p { font-size: 20px; opacity: 0.9; margin-top: 10px; }
+        #splash .loader { width: 200px; height: 10px; background: rgba(255,255,255,0.2); border-radius: 5px; margin-top: 30px; overflow: hidden; }
+        #splash .bar { width: 0%; height: 100%; background: gold; transition: width 2s ease-in-out; }
+
+        /* Game UI */
+        .ui { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); color: #fff; background: rgba(0,0,0,0.6); padding: 10px 30px; border-radius: 50px; font-size: 24px; border: 2px solid gold; z-index: 10; pointer-events: none; }
+        #gameOver { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); color: white; display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 20; }
+        
+        /* Mobile Buttons */
+        #touchControls { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: space-around; z-index: 100; pointer-events: none; }
+        .t-btn { width: 80px; height: 80px; background: rgba(255,255,255,0.15); border: 3px solid #fff; border-radius: 50%; color: white; font-size: 35px; pointer-events: auto; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
+        @media (min-width: 1024px) { #touchControls { display: none; } }
+    </style>
+</head>
+<body>
+
+    <div id="splash">
+        <h1>BOUNCE TALES</h1>
+        <p>Developed by <b>Jyotirmoy Saha</b></p>
+        <div class="loader"><div class="bar" id="loadBar"></div></div>
+    </div>
+
+    <div class="ui">SCORE: <span id="score">0</span></div>
+    
+    <div id="gameOver">
+        <h1>GAME OVER</h1>
+        <button style="padding:15px 30px; font-size:20px; cursor:pointer;" onclick="resetGame()">PLAY AGAIN</button>
+    </div>
+
+    <canvas id="game"></canvas>
+
+    <div id="touchControls">
+        <button class="t-btn" id="btnL">←</button>
+        <button class="t-btn" id="btnJ">↑</button>
+        <button class="t-btn" id="btnR">→</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 800; canvas.height = 480;
+
+        // --- SPLASH SCREEN LOGIC ---
+        window.onload = () => {
+            const bar = document.getElementById('loadBar');
+            bar.style.width = '100%';
+            setTimeout(() => {
+                document.getElementById('splash').style.opacity = '0';
+                setTimeout(() => { document.getElementById('splash').style.display = 'none'; }, 1000);
+            }, 2500);
+        };
+
+        // --- PHYSICS UPGRADE (SMOOTH ROLLING) ---
+        let score = 0, camX = 0, gameActive = true;
+        const FRICTION = 0.93; 
+        const ACCEL = 0.8; 
+        const GRAVITY = 0.7;
+        const JUMP_FORCE = -14;
+
+        let ball = { 
+            x: 100, y: 300, r: 18, 
+            vx: 0, vy: 0, 
+            rotation: 0, squash: 1, 
+            grounded: false 
+        };
+
+        let platforms = [], rings = [], mobs = [], clouds = [];
+        let nextSpawnX = 0;
+
+        function spawnChunk() {
+            while (nextSpawnX < ball.x + 1200) {
+                let w = 200 + Math.random() * 250;
+                let gap = 130 + Math.min(score * 3, 300);
+                let y = 320 + (Math.random() * 100 - 50);
+                platforms.push({ x: nextSpawnX, y: y, w: w, h: 60 });
+                if (Math.random() > 0.4 && nextSpawnX > 500) rings.push({ x: nextSpawnX + w/2, y: y - 50, active: true });
+                if (score > 3 && Math.random() > 0.7) mobs.push({ x: nextSpawnX + 50, y: y, range: w - 60, curX: nextSpawnX + 50, dir: 1, speed: 2 + (score/15), bob: 0 });
+                nextSpawnX += w + gap;
+            }
+        }
+
+        function resetGame() {
+            score = 0; nextSpawnX = 0; camX = 0; platforms = []; rings = []; mobs = []; clouds = [];
+            ball = { x: 100, y: 300, r: 18, vx: 0, vy: 0, rotation: 0, squash: 1, grounded: false };
+            gameActive = true; document.getElementById('gameOver').style.display = 'none';
+            platforms.push({ x: 0, y: 400, w: 800, h: 80 });
+            nextSpawnX = 950;
+            for(let i=0; i<15; i++) clouds.push({x: i*250, y: 50 + Math.random()*100, scale: 0.7 + Math.random()});
+            spawnChunk();
+        }
+
+        // Controls
+        const keys = {};
+        const setKey = (k, v) => keys[k] = v;
+        window.onkeydown = e => setKey(e.key.toLowerCase(), true);
+        window.onkeyup = e => setKey(e.key.toLowerCase(), false);
+
+        document.getElementById('btnL').ontouchstart = (e) => { e.preventDefault(); setKey('a', true); };
+        document.getElementById('btnL').ontouchend = () => setKey('a', false);
+        document.getElementById('btnR').ontouchstart = (e) => { e.preventDefault(); setKey('d', true); };
+        document.getElementById('btnR').ontouchend = () => setKey('d', false);
+        document.getElementById('btnJ').ontouchstart = (e) => { e.preventDefault(); setKey('w', true); };
+        document.getElementById('btnJ').ontouchend = () => setKey('w', false);
+
+        function update() {
+            if (!gameActive) return;
+
+            // Horizontal Smooth Momentum
+            if (keys['d']) ball.vx += ACCEL;
+            if (keys['a']) ball.vx -= ACCEL;
+            ball.vx *= FRICTION;
+            ball.x += ball.vx;
+
+            // Rotation tied to speed
+            ball.rotation += ball.vx * 0.06;
+
+            // Vertical Physics
+            ball.vy += GRAVITY;
+            ball.y += ball.vy;
+
+            if (keys['w'] && ball.grounded) {
+                ball.vy = JUMP_FORCE; ball.grounded = false; ball.squash = 0.5;
+            }
+            ball.squash += (1 - ball.squash) * 0.15;
+
+            // Smooth Camera (Interpolation)
+            let targetCam = ball.x - 300;
+            camX += (targetCam - camX) * 0.08;
+
+            spawnChunk();
+
+            // Collision
+            ball.grounded = false;
+            platforms.forEach(p => {
+                if (ball.x + ball.r > p.x && ball.x - ball.r < p.x + p.w && ball.y + ball.r > p.y && ball.y - ball.r < p.y + p.h) {
+                    if (ball.vy > 0 && ball.y < p.y) { ball.y = p.y - ball.r; ball.vy = 0; ball.grounded = true; }
+                }
+            });
+
+            mobs.forEach(m => {
+                m.curX += m.speed * m.dir; m.bob += 0.1;
+                if (m.curX < m.x || m.curX > m.x + m.range) m.dir *= -1;
+                if (Math.hypot(ball.x - m.curX, ball.y - (m.y-20)) < 38) { gameActive = false; document.getElementById('gameOver').style.display='flex'; }
+            });
+
+            rings.forEach(r => {
+                if (r.active && Math.hypot(ball.x - r.x, ball.y - r.y) < 35) { r.active = false; score++; document.getElementById('score').innerText = score; }
+            });
+
+            if (ball.y > 600) { gameActive = false; document.getElementById('gameOver').style.display='flex'; }
+        }
+
+        function draw() {
+            // Background
+            let sky = ctx.createLinearGradient(0,0,0,480);
+            sky.addColorStop(0, "#23a6d5"); sky.addColorStop(1, "#87CEEB");
+            ctx.fillStyle = sky; ctx.fillRect(0,0,800,480);
+
+            ctx.save(); ctx.translate(-camX, 0);
+
+            clouds.forEach(c => {
+                ctx.fillStyle = "rgba(255,255,255,0.7)"; ctx.beginPath();
+                ctx.arc(c.x + camX*0.4, c.y, 30*c.scale, 0, Math.PI*2); ctx.fill();
+            });
+
+            platforms.forEach(p => {
+                ctx.fillStyle = "#2ecc71"; ctx.fillRect(p.x, p.y, p.w, p.h);
+                ctx.fillStyle = "#27ae60"; ctx.fillRect(p.x, p.y, p.w, 8); // Top grass line
+            });
+
+            mobs.forEach(m => {
+                let b = Math.sin(m.bob) * 5; ctx.fillStyle = "#333";
+                ctx.fillRect(m.curX - 18, m.y - 35 + b, 36, 35);
+                ctx.fillStyle = "red"; ctx.fillRect(m.curX-12, m.y-28+b, 6, 6); ctx.fillRect(m.curX+6, m.y-28+b, 6, 6);
+            });
+
+            rings.forEach(r => {
+                if (r.active) {
+                    ctx.beginPath(); ctx.arc(r.x, r.y, 22, 0, Math.PI*2);
+                    ctx.strokeStyle = "gold"; ctx.lineWidth = 6; ctx.stroke();
+                }
+            });
+
+            // The Ball (Professional 3D Shading)
+            ctx.save(); ctx.translate(ball.x, ball.y); ctx.scale(1/ball.squash, ball.squash); ctx.rotate(ball.rotation);
+            let grad = ctx.createRadialGradient(-5, -5, 2, 0, 0, 18);
+            grad.addColorStop(0, "#FF6E40"); grad.addColorStop(1, "#D84315");
+            ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.beginPath(); ctx.ellipse(-6,-6,8,5,-Math.PI/4,0,Math.PI*2); ctx.fill();
+            ctx.restore();
+
+            ctx.restore(); update(); requestAnimationFrame(draw);
+        }
+
+        resetGame(); draw();
+    </script>
+</body>
+</html>
